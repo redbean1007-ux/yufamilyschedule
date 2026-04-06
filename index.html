@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f1a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="排班表">
+<meta name="description" content="即時查詢值班人員，支援調班申請">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>值班排班表</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0f0f1a;
+  --surface: #1a1a2e;
+  --surface2: #22223a;
+  --accent: #7c6fff;
+  --accent2: #ff6b9d;
+  --fri: #38bdf8;
+  --text: #f0f0ff;
+  --muted: #7878a0;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --green: #34d399;
+  --red: #f87171;
+  --amber: #fbbf24;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body {
+  font-family: 'Noto Sans TC', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(124,111,255,0.05) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+  z-index: 0;
+}
+.app { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; padding-bottom: 80px; }
+
+/* Header */
+.header {
+  padding: 2.5rem 1.25rem 0;
+  text-align: center;
+}
+.header-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+  font-family: 'DM Mono', monospace;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.header h1 {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin-bottom: 1.25rem;
+}
+
+/* Today card */
+.today-card {
+  margin: 0 1.25rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 1.25rem 1.5rem;
+  position: relative;
+  overflow: hidden;
+}
+.today-card::after {
+  content: '';
+  position: absolute;
+  top: -50px; right: -50px;
+  width: 160px; height: 160px;
+  border-radius: 50%;
+  background: rgba(124,111,255,0.12);
+  filter: blur(40px);
+  pointer-events: none;
+}
+.today-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+.today-date-text {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+.today-pill {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-family: 'DM Mono', monospace;
+  background: rgba(124,111,255,0.18);
+  color: #a89fff;
+  border: 1px solid rgba(124,111,255,0.25);
+}
+.today-pill.fri { background: rgba(56,189,248,0.15); color: #7dd3fc; border-color: rgba(56,189,248,0.25); }
+.today-pill.swapped { background: rgba(251,191,36,0.15); color: #fbbf24; border-color: rgba(251,191,36,0.25); }
+.today-person-row { display: flex; align-items: center; gap: 14px; }
+.avatar {
+  width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 700; color: white;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+}
+.avatar.fri-av { background: linear-gradient(135deg, #0ea5e9, #38bdf8); }
+.avatar.swap-av { background: linear-gradient(135deg, #d97706, #fbbf24); }
+.person-name { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+.person-note { font-size: 12px; color: var(--muted); margin-top: 5px; }
+.person-note span { color: var(--accent); font-family: 'DM Mono', monospace; }
+.person-note span.fri-c { color: var(--fri); }
+.person-note span.swap-c { color: var(--amber); }
+
+/* Admin bar */
+.admin-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 0 1.25rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 14px;
+}
+.admin-label { font-size: 12px; color: var(--muted); }
+.toggle { position: relative; display: inline-block; width: 42px; height: 24px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute; cursor: pointer; inset: 0;
+  background: rgba(255,255,255,0.1); border-radius: 24px; transition: .3s;
+}
+.slider:before {
+  position: absolute; content: ""; height: 18px; width: 18px;
+  left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .3s;
+}
+input:checked + .slider { background: var(--accent); }
+input:checked + .slider:before { transform: translateX(18px); }
+
+/* Tabs (bottom nav) */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  max-width: 480px; margin: 0 auto;
+  z-index: 100;
+}
+.nav-btn {
+  flex: 1; background: none; border: none; padding: 10px 0 12px;
+  color: var(--muted); cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  font-size: 10px; font-family: 'Noto Sans TC', sans-serif;
+  transition: color .2s;
+}
+.nav-btn.active { color: var(--accent); }
+.nav-icon { font-size: 20px; line-height: 1; }
+.nav-badge {
+  position: absolute; top: 6px; right: calc(50% - 22px);
+  background: var(--red); color: white;
+  font-size: 9px; font-weight: 700;
+  width: 16px; height: 16px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-btn { position: relative; }
+
+/* Pages */
+.page { display: none; }
+.page.active { display: block; }
+
+/* Section */
+.sec { padding: 0 1.25rem; margin-bottom: 1.5rem; }
+.sec-title {
+  font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--muted); font-family: 'DM Mono', monospace; margin-bottom: 0.75rem;
+}
+
+/* Calendar */
+.cal-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+.cal-nav-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; color: var(--muted); width: 34px; height: 34px;
+  cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center;
+}
+.cal-nav-btn:hover { background: var(--surface2); }
+.cal-month { font-size: 15px; font-weight: 500; font-family: 'DM Mono', monospace; }
+.wdays { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; margin-bottom: 2px; }
+.wl { text-align: center; font-size: 10px; color: var(--muted); padding: 2px 0; }
+.wl.fri { color: var(--fri); }
+.cgrid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
+.cc {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 8px; min-height: 56px; padding: 4px 5px;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.cc.dim { opacity: 0.25; }
+.cc.is-fri { background: rgba(56,189,248,0.06); border-color: rgba(56,189,248,0.12); }
+.cc.is-today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cc.has-swap { background: rgba(251,191,36,0.07); border-color: rgba(251,191,36,0.2); }
+.cdn { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; font-weight: 500; }
+.cc.is-today .cdn { color: var(--accent); }
+.cbadge {
+  font-size: 9px; font-weight: 500; border-radius: 3px;
+  padding: 1px 4px; line-height: 1.5; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis; text-align: center;
+}
+.cb-reg { background: rgba(124,111,255,0.2); color: #c4beff; }
+.cb-fri { background: rgba(56,189,248,0.18); color: #7dd3fc; }
+.cb-swap { background: rgba(251,191,36,0.2); color: #fcd34d; }
+.cal-legend { display: flex; flex-wrap: wrap; gap: 10px; padding: 0.75rem 0 0; }
+.leg { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.ldot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+/* Quick lookup */
+.lookup-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.lookup-row input[type="date"] {
+  flex: 1; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; color: var(--text); font-size: 14px;
+  font-family: 'DM Mono', monospace; padding: 9px 12px;
+  outline: none; color-scheme: dark; -webkit-appearance: none;
+}
+.lookup-row input:focus { border-color: var(--accent); }
+.lookup-btn {
+  background: var(--accent); border: none; border-radius: 12px;
+  color: white; font-size: 14px; font-weight: 700; padding: 9px 18px;
+  cursor: pointer; font-family: 'Noto Sans TC', sans-serif;
+  white-space: nowrap;
+}
+.lookup-result {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.lookup-result.hidden { display: none; }
+.lr-date { font-size: 12px; color: var(--muted); font-family: 'DM Mono', monospace; }
+.lr-name { font-size: 20px; font-weight: 700; }
+.lr-badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-family: 'DM Mono', monospace; }
+
+/* Apply form */
+.form-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 1.5rem;
+}
+.form-row { margin-bottom: 1rem; }
+.form-label { font-size: 12px; color: var(--muted); margin-bottom: 5px; display: block; font-family: 'DM Mono', monospace; letter-spacing: 0.05em; }
+.form-row select,
+.form-row input[type="date"] {
+  width: 100%; background: var(--surface2);
+  border: 1px solid var(--border2); border-radius: 10px;
+  color: var(--text); font-size: 14px; padding: 9px 12px;
+  font-family: 'Noto Sans TC', sans-serif; outline: none; color-scheme: dark;
+  -webkit-appearance: none; appearance: none;
+}
+.form-row select:focus,
+.form-row input[type="date"]:focus { border-color: var(--accent); }
+.form-row select option { background: #1a1a2e; }
+.form-row textarea {
+  width: 100%; background: var(--surface2);
+  border: 1px solid var(--border2); border-radius: 10px;
+  color: var(--text); font-size: 13px; padding: 10px 12px;
+  font-family: 'Noto Sans TC', sans-serif; resize: none; height: 80px; outline: none;
+}
+.form-row textarea:focus { border-color: var(--accent); }
+.preview-box {
+  background: var(--surface2); border: 1px solid var(--border2);
+  border-radius: 10px; padding: 12px 14px;
+  font-size: 13px; color: var(--muted); margin-bottom: 1rem; line-height: 1.6;
+}
+.preview-box strong { color: var(--text); }
+.preview-warn { color: var(--amber) !important; }
+.btn-submit {
+  width: 100%; background: var(--accent); border: none;
+  border-radius: 12px; color: white; font-size: 15px;
+  font-weight: 700; padding: 12px; cursor: pointer;
+  font-family: 'Noto Sans TC', sans-serif; transition: background .2s;
+}
+.btn-submit:hover { background: #6a5de8; }
+
+/* Requests */
+.req-filter { display: flex; gap: 6px; margin-bottom: 1rem; flex-wrap: wrap; }
+.filter-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; color: var(--muted); font-size: 12px;
+  padding: 5px 14px; cursor: pointer; font-family: 'Noto Sans TC', sans-serif;
+}
+.filter-btn.active { background: rgba(124,111,255,0.2); color: #a89fff; border-color: rgba(124,111,255,0.3); }
+.req-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 1rem 1.25rem; margin-bottom: 0.75rem;
+}
+.req-top { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 8px; }
+.req-from { font-size: 15px; font-weight: 500; }
+.req-status { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; }
+.st-pending { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.25); }
+.st-approved { background: rgba(52,211,153,0.15); color: #34d399; border: 1px solid rgba(52,211,153,0.25); }
+.st-rejected { background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.25); }
+.req-detail { font-size: 13px; color: var(--muted); line-height: 1.7; }
+.req-detail strong { color: var(--text); }
+.req-reason { font-size: 12px; color: var(--muted); margin-top: 4px; font-style: italic; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 8px; }
+.req-actions { display: flex; gap: 8px; margin-top: 12px; }
+.btn-approve {
+  flex: 1; background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.25);
+  border-radius: 10px; color: #34d399; font-size: 13px; font-weight: 500;
+  padding: 8px; cursor: pointer; font-family: 'Noto Sans TC', sans-serif;
+}
+.btn-approve:hover { background: rgba(52,211,153,0.2); }
+.btn-reject {
+  flex: 1; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.2);
+  border-radius: 10px; color: #f87171; font-size: 13px; font-weight: 500;
+  padding: 8px; cursor: pointer; font-family: 'Noto Sans TC', sans-serif;
+}
+.btn-reject:hover { background: rgba(248,113,113,0.18); }
+.empty-state { text-align: center; padding: 2.5rem 1rem; color: var(--muted); font-size: 14px; line-height: 1.8; }
+
+/* iOS install tip */
+.ios-tip {
+  margin: 0 1.25rem 1rem;
+  background: var(--surface); border: 1px dashed rgba(124,111,255,0.3);
+  border-radius: 14px; padding: 1rem 1.25rem;
+  font-size: 13px; color: var(--muted); line-height: 1.7;
+}
+.ios-tip strong { color: var(--text); }
+.ios-tip .step { color: var(--accent); }
+.ios-tip.hidden { display: none; }
+
+/* Install banner */
+.install-banner {
+  margin: 0 1.25rem 1rem;
+  background: var(--surface); border: 1px solid rgba(124,111,255,0.25);
+  border-radius: 14px; padding: 0.9rem 1.25rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.install-banner.hidden { display: none; }
+.install-text { font-size: 13px; color: var(--muted); line-height: 1.4; }
+.install-text strong { color: var(--text); }
+.install-btn {
+  background: var(--accent); border: none; border-radius: 10px;
+  color: white; font-size: 13px; font-weight: 700; padding: 8px 16px;
+  cursor: pointer; white-space: nowrap; font-family: 'Noto Sans TC', sans-serif;
+}
+
+/* Toast */
+.toast {
+  position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%);
+  background: var(--surface2); color: var(--text);
+  border: 1px solid var(--border2);
+  font-size: 13px; padding: 10px 20px;
+  border-radius: 20px; opacity: 0; transition: opacity .3s;
+  pointer-events: none; z-index: 999; white-space: nowrap;
+  font-family: 'Noto Sans TC', sans-serif;
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="header">
+    <div class="header-eyebrow">值班系統</div>
+    <h1>排班查詢</h1>
+  </div>
+
+  <!-- PWA install banners -->
+  <div class="install-banner hidden" id="installBanner">
+    <div class="install-text"><strong>加入主畫面</strong><br>像 App 一樣使用</div>
+    <button class="install-btn" id="installBtn">安裝</button>
+  </div>
+  <div class="ios-tip hidden" id="iosTip">
+    <strong>加到主畫面（iPhone）</strong><br>
+    <span class="step">① 下方分享鈕</span> → <span class="step">② 加入主畫面</span> → 即可像 App 使用！
+  </div>
+
+  <!-- Today card -->
+  <div class="today-card">
+    <div class="today-meta">
+      <div class="today-date-text" id="todayDateText"></div>
+      <div class="today-pill" id="todayPill">今日值班</div>
+    </div>
+    <div class="today-person-row">
+      <div class="avatar" id="todayAvatar"></div>
+      <div>
+        <div class="person-name" id="todayName"></div>
+        <div class="person-note" id="todayNote"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Admin toggle -->
+  <div class="admin-bar">
+    <span class="admin-label">管理員模式（可審核調班）</span>
+    <label class="toggle">
+      <input type="checkbox" id="adminToggle" onchange="onAdminToggle()">
+      <span class="slider"></span>
+    </label>
+  </div>
+
+  <!-- Page: Calendar -->
+  <div id="page-calendar" class="page active">
+    <div class="sec">
+      <div class="sec-title">月曆排班</div>
+      <div class="cal-nav">
+        <button class="cal-nav-btn" onclick="changeMonth(-1)">&#8592;</button>
+        <span class="cal-month" id="calMonth"></span>
+        <button class="cal-nav-btn" onclick="changeMonth(1)">&#8594;</button>
+      </div>
+      <div class="wdays">
+        <div class="wl">日</div><div class="wl">一</div><div class="wl">二</div>
+        <div class="wl">三</div><div class="wl">四</div><div class="wl fri">五</div>
+        <div class="wl">六</div>
+      </div>
+      <div class="cgrid" id="calGrid"></div>
+      <div class="cal-legend">
+        <div class="leg"><div class="ldot" style="background:rgba(124,111,255,0.5)"></div>輪班</div>
+        <div class="leg"><div class="ldot" style="background:rgba(56,189,248,0.5)"></div>麗卿（週五固定）</div>
+        <div class="leg"><div class="ldot" style="background:rgba(251,191,36,0.5)"></div>已調班</div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-title">查詢指定日期</div>
+      <div class="lookup-row">
+        <input type="date" id="lookupDate">
+        <button class="lookup-btn" onclick="doLookup()">查詢</button>
+      </div>
+      <div class="lookup-result hidden" id="lookupResult"></div>
+    </div>
+  </div>
+
+  <!-- Page: Apply -->
+  <div id="page-apply" class="page">
+    <div class="sec">
+      <div class="sec-title">申請調班</div>
+      <div class="form-card">
+        <div class="form-row">
+          <label class="form-label">申請人</label>
+          <select id="applyFrom" onchange="updatePreview()">
+            <option value="">請選擇</option>
+            <option>光男</option><option>玉輝</option><option>國華</option>
+            <option>賜海</option><option>順裕</option><option>麗卿</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">我的排班日期（想換掉的那天）</label>
+          <input type="date" id="applyDate" onchange="updatePreview()">
+        </div>
+        <div class="form-row">
+          <label class="form-label">與誰對調</label>
+          <select id="applyWith" onchange="updatePreview()">
+            <option value="">請選擇</option>
+            <option>光男</option><option>玉輝</option><option>國華</option>
+            <option>賜海</option><option>順裕</option><option>麗卿</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">對方的排班日期（要換來的那天）</label>
+          <input type="date" id="applyTargetDate" onchange="updatePreview()">
+        </div>
+        <div class="preview-box" id="applyPreview">填寫上方資訊後，這裡會顯示調班預覽</div>
+        <div class="form-row">
+          <label class="form-label">調班原因</label>
+          <textarea id="applyReason" placeholder="請說明調班原因..."></textarea>
+        </div>
+        <button class="btn-submit" onclick="submitRequest()">送出申請</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Page: Requests -->
+  <div id="page-requests" class="page">
+    <div class="sec">
+      <div class="sec-title">調班申請紀錄</div>
+      <div class="req-filter">
+        <button class="filter-btn active" onclick="setFilter('all',this)">全部</button>
+        <button class="filter-btn" onclick="setFilter('pending',this)">待審核</button>
+        <button class="filter-btn" onclick="setFilter('approved',this)">已核准</button>
+        <button class="filter-btn" onclick="setFilter('rejected',this)">已拒絕</button>
+      </div>
+      <div id="requestsList"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Bottom nav -->
+<div class="bottom-nav">
+  <button class="nav-btn active" onclick="switchPage('calendar',this)">
+    <span class="nav-icon">📅</span>月曆
+  </button>
+  <button class="nav-btn" onclick="switchPage('apply',this)">
+    <span class="nav-icon">✏️</span>申請調班
+  </button>
+  <button class="nav-btn" onclick="switchPage('requests',this)" id="reqNavBtn">
+    <span class="nav-icon">📋</span>調班紀錄
+    <span class="nav-badge hidden" id="pendingBadge"></span>
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─── Data ───
+const ROTATION = ['光男','玉輝','國華','賜海','順裕'];
+const FRIDAY_PERSON = '麗卿';
+const START = new Date(2026,3,6); // 2026-04-06 = index 0 (光男)
+const WD = ['日','一','二','三','四','五','六'];
+const MN = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+function pad(n){return String(n).padStart(2,'0');}
+function dateKey(d){return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;}
+function parseDate(s){const p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
+function dateStr(d){return `${d.getMonth()+1}/${d.getDate()}(週${WD[d.getDay()]})`;}
+
+// ─── Schedule logic ───
+function getBasePerson(date) {
+  const dow = date.getDay();
+  if (dow === 5) return { name: FRIDAY_PERSON, isFri: true };
+  const d0 = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const s0 = new Date(START.getFullYear(), START.getMonth(), START.getDate());
+  const diff = Math.round((d0 - s0) / 86400000);
+  if (diff < 0) return null;
+  let cnt = 0;
+  for (let i = 0; i <= diff; i++) {
+    const t = new Date(s0); t.setDate(s0.getDate() + i);
+    if (t.getDay() !== 5) cnt++;
+  }
+  return { name: ROTATION[(cnt - 1) % ROTATION.length], isFri: false };
+}
+
+let swaps = {};   // { "YYYY-MM-DD": "人名" }
+let requests = []; // array of request objects
+let reqFilter = 'all';
+
+// ─── Storage ───
+async function loadAll() {
+  try {
+    const sr = await window.storage.get('v2-swaps', true);
+    if (sr) swaps = JSON.parse(sr.value);
+  } catch(e) { swaps = {}; }
+  try {
+    const rr = await window.storage.get('v2-requests', true);
+    if (rr) requests = JSON.parse(rr.value);
+  } catch(e) { requests = []; }
+}
+async function saveSwaps() {
+  try { await window.storage.set('v2-swaps', JSON.stringify(swaps), true); } catch(e){}
+}
+async function saveRequests() {
+  try { await window.storage.set('v2-requests', JSON.stringify(requests), true); } catch(e){}
+}
+
+function getEffectivePerson(date) {
+  const key = dateKey(date);
+  const base = getBasePerson(date);
+  if (swaps[key]) return { name: swaps[key], isFri: date.getDay() === 5, swapped: true };
+  return base;
+}
+
+// ─── Today card ───
+const today = new Date();
+function renderToday() {
+  const p = getEffectivePerson(today);
+  document.getElementById('todayDateText').innerHTML =
+    `${today.getFullYear()}.${pad(today.getMonth()+1)}.${pad(today.getDate())}<br>週${WD[today.getDay()]}`;
+  if (!p) {
+    document.getElementById('todayName').textContent = '—';
+    return;
+  }
+  const pill = document.getElementById('todayPill');
+  const av = document.getElementById('todayAvatar');
+  const nm = document.getElementById('todayName');
+  const nt = document.getElementById('todayNote');
+  pill.className = 'today-pill' + (p.swapped?' swapped':p.isFri?' fri':'');
+  pill.textContent = p.swapped ? '調班值班' : '今日值班';
+  av.className = 'avatar' + (p.swapped?' swap-av':p.isFri?' fri-av':'');
+  av.textContent = p.name[0];
+  nm.textContent = p.name;
+  if (p.swapped) {
+    nt.innerHTML = '調班 · <span class="swap-c">已調整</span>';
+  } else if (p.isFri) {
+    nt.innerHTML = '固定班 · <span class="fri-c">每週五</span>';
+  } else {
+    const idx = ROTATION.indexOf(p.name) + 1;
+    nt.innerHTML = `輪班 · <span>#${idx} / ${ROTATION.length}</span>`;
+  }
+}
+
+// ─── Calendar ───
+let vy = today.getFullYear(), vm = today.getMonth();
+function renderCalendar() {
+  document.getElementById('calMonth').textContent = `${vy}.${pad(vm+1)}`;
+  const grid = document.getElementById('calGrid');
+  grid.innerHTML = '';
+  const first = new Date(vy, vm, 1).getDay();
+  const days = new Date(vy, vm+1, 0).getDate();
+  const prev = new Date(vy, vm, 0).getDate();
+  for (let i = 0; i < first; i++) {
+    const c = document.createElement('div'); c.className = 'cc dim';
+    c.innerHTML = `<span class="cdn">${prev-first+1+i}</span>`; grid.appendChild(c);
+  }
+  for (let d = 1; d <= days; d++) {
+    const date = new Date(vy, vm, d);
+    const isFri = date.getDay() === 5;
+    const isTod = date.toDateString() === today.toDateString();
+    const p = getEffectivePerson(date);
+    const isSwapped = p && p.swapped;
+    const c = document.createElement('div');
+    c.className = 'cc' + (isSwapped?' has-swap':isFri?' is-fri':'') + (isTod?' is-today':'');
+    let badge = '';
+    if (p) badge = `<span class="cbadge ${isSwapped?'cb-swap':isFri?'cb-fri':'cb-reg'}">${p.name}</span>`;
+    c.innerHTML = `<span class="cdn">${d}</span>${badge}`;
+    grid.appendChild(c);
+  }
+  const total = first + days;
+  const rem = total % 7 === 0 ? 0 : 7 - total % 7;
+  for (let d = 1; d <= rem; d++) {
+    const c = document.createElement('div'); c.className = 'cc dim';
+    c.innerHTML = `<span class="cdn">${d}</span>`; grid.appendChild(c);
+  }
+}
+function changeMonth(delta) {
+  vm += delta;
+  if (vm > 11) { vm = 0; vy++; }
+  if (vm < 0) { vm = 11; vy--; }
+  renderCalendar();
+}
+
+// ─── Lookup ───
+function doLookup() {
+  const val = document.getElementById('lookupDate').value;
+  const el = document.getElementById('lookupResult');
+  if (!val) { el.classList.add('hidden'); return; }
+  const d = parseDate(val);
+  const p = getEffectivePerson(d);
+  const ds = `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())} 週${WD[d.getDay()]}`;
+  el.classList.remove('hidden');
+  if (!p) {
+    el.innerHTML = `<div><div class="lr-date">${ds}</div><div class="lr-name" style="font-size:15px;color:var(--muted)">排班起始日之前</div></div>`;
+    return;
+  }
+  const bClass = p.swapped ? 'cb-swap' : p.isFri ? 'cb-fri' : 'cb-reg';
+  const bLabel = p.swapped ? '調班' : p.isFri ? '固定班' : '輪班';
+  el.innerHTML = `
+    <div><div class="lr-date">${ds}</div><div class="lr-name">${p.name}</div></div>
+    <span class="lr-badge ${bClass}">${bLabel}</span>`;
+}
+
+// ─── Apply form ───
+function updatePreview() {
+  const from = document.getElementById('applyFrom').value;
+  const date = document.getElementById('applyDate').value;
+  const withP = document.getElementById('applyWith').value;
+  const tdate = document.getElementById('applyTargetDate').value;
+  const box = document.getElementById('applyPreview');
+  if (!from || !date || !withP || !tdate) {
+    box.innerHTML = '填寫完整資訊後，這裡會顯示調班預覽';
+    box.className = 'preview-box'; return;
+  }
+  const d1 = parseDate(date), d2 = parseDate(tdate);
+  const p1 = getBasePerson(d1), p2 = getBasePerson(d2);
+  if (!p1 || !p2) { box.innerHTML = '日期範圍在排班起始日之前'; return; }
+  if (p1.name !== from) {
+    box.innerHTML = `<span class="preview-warn">⚠ ${dateStr(d1)} 的值班是 <strong>${p1.name}</strong>，非 ${from}</span>`; return;
+  }
+  if (p2.name !== withP) {
+    box.innerHTML = `<span class="preview-warn">⚠ ${dateStr(d2)} 的值班是 <strong>${p2.name}</strong>，非 ${withP}</span>`; return;
+  }
+  box.innerHTML = `<strong>${from}</strong> 的 ${dateStr(d1)}<br>↔ <strong>${withP}</strong> 的 ${dateStr(d2)}<br><span style="font-size:11px;color:var(--muted)">核准後：${dateStr(d1)} 由 ${withP} 值班，${dateStr(d2)} 由 ${from} 值班</span>`;
+}
+
+async function submitRequest() {
+  const from = document.getElementById('applyFrom').value;
+  const date = document.getElementById('applyDate').value;
+  const withP = document.getElementById('applyWith').value;
+  const tdate = document.getElementById('applyTargetDate').value;
+  const reason = document.getElementById('applyReason').value.trim();
+  if (!from || !date || !withP || !tdate) { showToast('請填寫完整資訊'); return; }
+  if (from === withP) { showToast('申請人與對調人不能相同'); return; }
+  const d1 = parseDate(date), d2 = parseDate(tdate);
+  const p1 = getBasePerson(d1), p2 = getBasePerson(d2);
+  if (!p1 || !p2) { showToast('日期錯誤'); return; }
+  if (p1.name !== from || p2.name !== withP) { showToast('日期與人員不符，請確認'); return; }
+  const req = {
+    id: Date.now(), from, withP, date, tdate,
+    reason: reason || '（未填寫）',
+    status: 'pending',
+    createdAt: new Date().toLocaleDateString('zh-TW')
+  };
+  requests.unshift(req);
+  await saveRequests();
+  ['applyFrom','applyWith','applyReason'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el.tagName === 'SELECT') el.value = '';
+    else el.value = '';
+  });
+  document.getElementById('applyDate').value = '';
+  document.getElementById('applyTargetDate').value = '';
+  document.getElementById('applyPreview').innerHTML = '填寫上方資訊後，這裡會顯示調班預覽';
+  updatePendingBadge();
+  showToast('申請已送出，等待管理員審核');
+}
+
+// ─── Requests ───
+function setFilter(f, btn) {
+  reqFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRequests();
+}
+
+function renderRequests() {
+  const isAdmin = document.getElementById('adminToggle').checked;
+  const list = document.getElementById('requestsList');
+  let data = requests;
+  if (reqFilter !== 'all') data = requests.filter(r => r.status === reqFilter);
+  if (data.length === 0) {
+    list.innerHTML = `<div class="empty-state">目前沒有${reqFilter==='all'?'':'相關的'}調班申請</div>`; return;
+  }
+  list.innerHTML = data.map(req => {
+    const d1 = parseDate(req.date), d2 = parseDate(req.tdate);
+    const stClass = req.status === 'pending' ? 'st-pending' : req.status === 'approved' ? 'st-approved' : 'st-rejected';
+    const stLabel = req.status === 'pending' ? '待審核' : req.status === 'approved' ? '已核准' : '已拒絕';
+    const actions = isAdmin && req.status === 'pending' ? `
+      <div class="req-actions">
+        <button class="btn-approve" onclick="approveReq(${req.id})">✓ 核准</button>
+        <button class="btn-reject" onclick="rejectReq(${req.id})">✗ 拒絕</button>
+      </div>` : '';
+    return `<div class="req-card">
+      <div class="req-top">
+        <div class="req-from">${req.from} 申請調班</div>
+        <span class="req-status ${stClass}">${stLabel}</span>
+      </div>
+      <div class="req-detail">
+        <strong>${req.from}</strong> 的 ${dateStr(d1)} ↔ <strong>${req.withP}</strong> 的 ${dateStr(d2)}<br>
+        申請日：${req.createdAt}
+      </div>
+      <div class="req-reason">原因：${req.reason}</div>
+      ${actions}
+    </div>`;
+  }).join('');
+}
+
+async function approveReq(id) {
+  const req = requests.find(r => r.id === id);
+  if (!req) return;
+  req.status = 'approved';
+  swaps[req.date] = req.withP;
+  swaps[req.tdate] = req.from;
+  await saveSwaps();
+  await saveRequests();
+  renderCalendar();
+  renderToday();
+  renderRequests();
+  updatePendingBadge();
+  showToast('已核准！排班已自動更新');
+}
+
+async function rejectReq(id) {
+  const req = requests.find(r => r.id === id);
+  if (!req) return;
+  req.status = 'rejected';
+  await saveRequests();
+  renderRequests();
+  updatePendingBadge();
+  showToast('已拒絕申請');
+}
+
+function updatePendingBadge() {
+  const cnt = requests.filter(r => r.status === 'pending').length;
+  const badge = document.getElementById('pendingBadge');
+  if (cnt > 0) { badge.textContent = cnt; badge.classList.remove('hidden'); }
+  else badge.classList.add('hidden');
+}
+
+// ─── Nav ───
+function switchPage(name, btn) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (name === 'requests') renderRequests();
+}
+
+function onAdminToggle() { renderRequests(); }
+
+// ─── Toast ───
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ─── PWA install ───
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault(); deferredPrompt = e;
+  document.getElementById('installBanner').classList.remove('hidden');
+});
+document.getElementById('installBtn').addEventListener('click', async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('installBanner').classList.add('hidden');
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('installBanner').classList.add('hidden');
+});
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+if (isIOS && !window.navigator.standalone) {
+  document.getElementById('iosTip').classList.remove('hidden');
+}
+
+// ─── Init ───
+async function init() {
+  // Set default lookup date
+  const ld = document.getElementById('lookupDate');
+  ld.value = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+
+  await loadAll();
+  renderToday();
+  renderCalendar();
+  updatePendingBadge();
+}
+
+init();
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
