@@ -194,29 +194,31 @@ input:checked + .slider:before { transform: translateX(18px); }
 .wdays { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; margin-bottom: 2px; }
 .wl { text-align: center; font-size: clamp(9px,2.5vw,11px); color: var(--muted); padding: 2px 0; }
 .wl.fri { color: var(--fri); }
-.cgrid { display: grid; grid-template-columns: repeat(7,1fr); gap: clamp(2px,0.6vw,4px); }
+.cgrid { display: grid; grid-template-columns: repeat(7,1fr); gap: 2px; }
 .cc {
   background: var(--surface); border: 1px solid var(--border);
-  border-radius: clamp(5px,1.5vw,8px);
-  /* auto height — grows with content, no fixed min-height */
-  padding: clamp(3px,1vw,5px) clamp(3px,1vw,5px);
-  display: flex; flex-direction: column; gap: 2px;
-  min-height: 0;
+  border-radius: 6px;
+  padding: 3px 2px;
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  min-height: 48px;
+  overflow: hidden;
 }
 .cc.dim { opacity: 0.25; }
 .cc.is-fri { background: rgba(56,189,248,0.06); border-color: rgba(56,189,248,0.12); }
 .cc.is-today { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .cc.has-swap { background: rgba(251,191,36,0.07); border-color: rgba(251,191,36,0.2); }
 .cdn {
-  font-size: clamp(9px,2.4vw,11px); color: var(--muted);
+  font-size: clamp(9px,2.8vw,12px); color: var(--muted);
   font-family: 'DM Mono', monospace; font-weight: 500; line-height: 1.2;
+  text-align: center; width: 100%;
 }
 .cc.is-today .cdn { color: var(--accent); }
 .cbadge {
-  font-size: clamp(8px,2.2vw,10px); font-weight: 500; border-radius: 3px;
-  padding: 1px 3px; line-height: 1.5;
-  overflow: hidden; text-overflow: ellipsis; text-align: center;
-  white-space: nowrap; display: block;
+  font-size: clamp(9px,2.6vw,11px); font-weight: 500; border-radius: 3px;
+  padding: 2px 1px; line-height: 1.4;
+  text-align: center; display: block;
+  width: 100%; white-space: nowrap;
+  overflow: hidden; text-overflow: clip;
 }
 .cb-reg { background: rgba(124,111,255,0.2); color: #c4beff; }
 .cb-fri { background: rgba(56,189,248,0.18); color: #7dd3fc; }
